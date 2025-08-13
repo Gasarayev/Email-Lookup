@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veb sayt E-poçt Axtarışı Emil Gasarayev</title>
+    <meta name="description"
+        content="Veb sayt URL-lərini daxil edin və bütün e-poçtları avtomatik çıxarın. Emil Gasarayev">
+    <link rel="icon" type="image/x-icon" href="./logo.webp">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="container navbar-inner">
+
+            <a href="https://emilgasarayev.com" target="_blank">Gasarayev</a>
+        </div>
+    </nav>
+
+
+    <div class="container">
+        <div class="container-body">
+
+
+            <h1>Email Lookup Tool</h1>
+            <p style="text-align: center; color: #7f8c8d;">Enter domain names, one per line.</p>
+            <form id="websiteForm">
+                <div class="form-group">
+                    <textarea id="textarea" placeholder="Example:
+google.com
+youtube.com
+facebook.com"></textarea>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">🚀 Start Checking</button>
+                    <button type="button" class="btn btn-secondary" id="clearBtn">Clear</button>
+                </div>
+            </form>
+            <div id="progressSection">
+                <div class="progressBar">
+                    <div id="progressFill"></div>
+                    <div id="progressText"></div>
+                </div>
+            </div>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+
+</html>

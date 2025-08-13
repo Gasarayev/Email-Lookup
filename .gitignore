@@ -1,0 +1,25 @@
+# Node.js faylları
+node_modules/
+npm-debug.log
+.env
+.DS_Store
+dist/
+build/
+*.log
+
+# Əməliyyat sistemi faylları
+.DS_Store
+Thumbs.db
+
+# Əgər Visual Studio Code istifadə edirsinizsə
+.vscode/
+
+# Puppeteer tərəfindən yaradılan bəzi fayllar
+.cache/puppeteer
+.chromium-browser/
+
+# Local storage faylları
+# Bu, brauzer tərəfindədir, lakin bəzi local testlər zamanı yaranan fayllar
+# üçün istifadə edilə bilər.
+localStorage/
+text.txt
