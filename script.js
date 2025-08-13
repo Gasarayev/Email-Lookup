@@ -11,7 +11,7 @@ function loadResultsFromLocalStorage() {
       const parsedResults = JSON.parse(results);
       displayResults(parsedResults);
     } catch (e) {
-      console.error("Local storage data format is invalid", e);
+      console.error("Local storage datası formatı düzgün deyil", e);
       localStorage.removeItem("emailScraperResults");
     }
   }
@@ -117,7 +117,7 @@ document
         domains.length,
         "Sending to server. Please wait some time..."
       );
-      const response = await fetch("http://localhost:3000/check", {
+      const response = await fetch("https://email-lookup.onrender.com/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domains }),

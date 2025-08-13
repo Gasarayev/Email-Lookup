@@ -1,5 +1,6 @@
 import express from "express";
 import puppeteer from "puppeteer";
+import chromium from '@sparticuz/chromium';
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -66,8 +67,10 @@ async function getContactAboutLinks(site) {
   try {
     if (!site.startsWith("http")) site = "https://" + site;
     browser = await puppeteer.launch({
-      headless: PUPPETEER_HEADLESS,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless
     });
     const page = await browser.newPage();
     await page.goto(site, {
