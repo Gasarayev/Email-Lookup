@@ -15,8 +15,8 @@ const SEARCH_KEYWORDS = (process.env.SEARCH_KEYWORDS || "contact,about")
   .split(",")
   .map((k) => k.trim());
 const PUPPETEER_HEADLESS = process.env.PUPPETEER_HEADLESS === "true";
-const PUPPETEER_TIMEOUT = parseInt(process.env.PUPPETEER_TIMEOUT, 10) || 30000;
-const PUPPETEER_DELAY = parseInt(process.env.PUPPETEER_DELAY, 10) || 3000;
+const PUPPETEER_TIMEOUT = parseInt(process.env.PUPPETEER_TIMEOUT, 10) || 60000;
+const PUPPETEER_DELAY = parseInt(process.env.PUPPETEER_DELAY, 10) || 6000;
 
 async function findAllLinks(page) {
   return await page.evaluate(() => {
