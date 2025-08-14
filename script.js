@@ -1,213 +1,111 @@
 let isProcessing = false;
+let currentJobId = null;
 
-function saveResultsToLocalStorage(results) {
-  localStorage.setItem("emailScraperResults", JSON.stringify(results));
+function generateJobId() {
+  return Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9);
 }
 
-function loadResultsFromLocalStorage() {
-  const results = localStorage.getItem("emailScraperResults");
-  if (results) {
-    try {
-      const parsedResults = JSON.parse(results);
-      displayResults(parsedResults);
-    } catch (e) {
-      console.error("Local storage datası formatı düzgün deyil", e);
-      localStorage.removeItem("emailScraperResults");
-    }
+function setLoading(state) {
+  isProcessing = state;
+  document.getElementById("submitBtn").disabled = state;
+  document.getElementById("clearBtn").disabled = !state;
+}
+
+function updateProgress(current, total) {
+  const progressBar = document.getElementById("progressBar");
+  if (!progressBar) return;
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+  progressBar.style.width = percent + "%";
+  progressBar.innerText = `${percent}%`;
+}
+
+function createSiteCard(result) {
+  if (result.error) {
+    return `
+      <div class="card error">
+        <h3>${result.site}</h3>
+        <p style="color:red;">Error: ${result.error}</p>
+      </div>
+    `;
   }
+  return `
+    <div class="card">
+      <h3>${result.site}</h3>
+      <p><strong>Emails:</strong> ${result.emails.join(", ") || "None"}</p>
+      <p><strong>Contact/About Links:</strong> ${result.links.join("<br>") || "None"}</p>
+      <small>Total Links: ${result.stats.totalLinks}, Contact Links: ${result.stats.contactLinks}</small>
+    </div>
+  `;
 }
 
-function displayResults(data) {
-  let html = "";
-  if (data && data.length > 0) {
-    data.forEach((item, index) => {
-      html += createSiteCard(item, index);
+document.getElementById("websiteForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  if (isProcessing) return;
+
+  const textareaValue = document.getElementById("textarea").value.trim();
+  const domains = textareaValue.split("\n").map(d => d.trim()).filter(Boolean);
+
+  if (domains.length === 0) {
+    alert("Please write valid domain names");
+    return;
+  }
+
+  if (domains.length > 5) {
+    alert("You can only enter up to 5 domains at once.");
+    return;
+  }
+
+  currentJobId = generateJobId();
+  setLoading(true);
+  updateProgress(0, domains.length);
+  document.getElementById("result").innerHTML = "";
+
+  try {
+    const response = await fetch("https://email-lookup.onrender.com/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domains, jobId: currentJobId }),
     });
-  } else {
-    html = '<div class="no-results">No results found</div>';
-  }
-  document.getElementById("result").innerHTML = html;
-}
 
-function updateProgress(current, total, message = "") {
-  const progressSection = document.getElementById("progressSection");
-  const progressFill = document.getElementById("progressFill");
-  const progressText = document.getElementById("progressText");
-  if (total > 0) {
-    progressSection.style.display = "block";
-    const percentage = Math.round((current / total) * 100);
-    progressFill.style.width = percentage + "%";
-    progressText.textContent =
-      message || `${current}/${total} domen yoxlanıldı (${percentage}%)`;
-  } else {
-    progressSection.style.display = "none";
-  }
-}
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let processedCount = 0;
 
-function setLoading(loading) {
-  const submitBtn = document.getElementById("submitBtn");
-  isProcessing = loading;
-  if (loading) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<div class="spinner"></div> Checking...';
-    document.getElementById("result").innerHTML = "";
-    updateProgress(0, 1, "Starting...");
-  } else {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = "🚀 Start Checking";
-    updateProgress(0, 0);
-  }
-}
-
-function createSiteCard(item, index) {
-  const hasStats = item.stats && typeof item.stats === "object";
-  const domain = item.site.replace(/^https?:\/\//, "").replace(/^www\./, "");
-  let html = `<div class="site-card" data-site="${domain}">`;
-  html += `<div class="site-header"><div class="site-title">🌐 <a href="${item.site}" style="color: inherit; text-decoration: none;" target="_blank">${item.site}</a></div>`;
-
-  html += `</div>`;
-  if (item.error) {
-    html += `<div class="error-message">❌ Error: ${item.error}</div></div>`;
-    return html;
-  }
-
-  if (item.emails && item.emails.length > 0) {
-    html += `<div class="emails-list">`;
-    item.emails.forEach((email) => {
-      html += `<div class="email-item"><span>${email}</span></div>`;
-    });
-    html += `</div>`;
-  } else {
-    html += '<div class="no-results">Email tapılmadı</div>';
-  }
-  html += `</div>`;
-  html += `</div>`;
-  return html;
-}
-
-document
-  .getElementById("websiteForm")
-  .addEventListener("submit", async function (e) {
-    e.preventDefault();
-    if (isProcessing) return;
-
-    const textareaValue = document.getElementById("textarea").value.trim();
-    if (!textareaValue) {
-      alert("Please enter domain names");
-      return;
-    }
-
-    const domains = textareaValue
-      .split("\n")
-      .map((d) => d.trim())
-      .filter(Boolean);
-    if (domains.length === 0) {
-      alert("Please write valid domain names");
-      return;
-    }
-
-    setLoading(true);
-    const allResults = [];
-    const resultContainer = document.getElementById("result");
-    resultContainer.innerHTML = ""; 
-
-    try {
-      updateProgress(
-        0,
-        domains.length,
-        "Sending to server. Please wait some time..."
-      );
-      const response = await fetch("https://email-lookup.onrender.com/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domains }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let done;
-      let value;
-
-      let completedDomainsCount = 0;
-
-      while (({ value, done } = await reader.read())) {
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop(); 
-
-        for (const line of lines) {
-          if (line.trim()) {
-            try {
-              const result = JSON.parse(line);
-              allResults.push(result);
-              resultContainer.innerHTML += createSiteCard(result); 
-              completedDomainsCount++;
-              updateProgress(
-                completedDomainsCount,
-                domains.length,
-                `${result.site} is done`
-              );
-            } catch (e) {
-              console.error("JSON parse error:", e);
-            }
-          }
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (line.trim()) {
+          const result = JSON.parse(line);
+          document.getElementById("result").innerHTML += createSiteCard(result);
+          processedCount++;
+          updateProgress(processedCount, domains.length);
         }
       }
-      if (buffer.trim()) {
-        try {
-          const result = JSON.parse(buffer);
-          allResults.push(result);
-          resultContainer.innerHTML += createSiteCard(result);
-          completedDomainsCount++;
-          updateProgress(
-            completedDomainsCount,
-            domains.length,
-            `${result.site} is done`
-          );
-        } catch (e) {
-          console.error("JSON parse error:", e);
-        }
-      }
-
-      saveResultsToLocalStorage(allResults);
-    } catch (err) {
-      console.error("Error:", err);
-      document.getElementById(
-        "result"
-      ).innerHTML = `<div class="error-message">❌ Error occurred: ${err.message}</div>`;
-    } finally {
-      setLoading(false);
-      updateProgress(
-        domains.length,
-        domains.length,
-        "All done"
-      );
     }
-  });
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+});
 
-document.getElementById("clearBtn").addEventListener("click", () => {
-  if (isProcessing) {
-    if (!confirm("Process is ongoing. Do you want to stop?")) {
-      return;
-    }
+
+document.getElementById("clearBtn").addEventListener("click", async () => {
+  if (isProcessing && currentJobId) {
+    await fetch("https://email-lookup.onrender.com/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: currentJobId }),
+    });
   }
   document.getElementById("textarea").value = "";
   document.getElementById("result").innerHTML = "";
-  updateProgress(0, 0);
   localStorage.removeItem("emailScraperResults");
-});
-
-document.addEventListener("DOMContentLoaded", loadResultsFromLocalStorage);
-
-const textarea = document.getElementById("textarea");
-textarea.addEventListener("input", function () {
-  this.style.height = "auto";
-  this.style.height = Math.max(120, this.scrollHeight) + "px";
+  updateProgress(0, 0);
+  isProcessing = false;
 });
