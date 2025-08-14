@@ -1,6 +1,6 @@
 import express from "express";
 import puppeteer from "puppeteer";
-import chromium from "@sparticuz/chromium";
+import chromium from '@sparticuz/chromium';
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -14,12 +14,9 @@ const PORT = process.env.PORT || 3000;
 const SEARCH_KEYWORDS = (process.env.SEARCH_KEYWORDS || "contact,about")
   .split(",")
   .map((k) => k.trim());
-
+const PUPPETEER_HEADLESS = process.env.PUPPETEER_HEADLESS === "true";
 const PUPPETEER_TIMEOUT = 60000;
 const PUPPETEER_DELAY = 60000;
-
-
-const activeJobs = new Map();
 
 async function findAllLinks(page) {
   return await page.evaluate(() => {
@@ -65,35 +62,26 @@ async function findEmails(page) {
   });
 }
 
-async function getContactAboutLinks(site, jobId) {
+async function getContactAboutLinks(site) {
   let browser;
   try {
     if (!site.startsWith("http")) site = "https://" + site;
-
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: chromium.headless
     });
-
-   
-    if (activeJobs.has(jobId)) {
-      activeJobs.get(jobId).browser = browser;
-    }
-
     const page = await browser.newPage();
     await page.goto(site, {
       waitUntil: "networkidle0",
       timeout: PUPPETEER_TIMEOUT,
     });
-
-   
-    if (!activeJobs.get(jobId)?.active) return null;
-
     await new Promise((resolve) => setTimeout(resolve, PUPPETEER_DELAY));
 
     const mainEmails = await findEmails(page);
+    console.log(`${site} - Main page ${mainEmails.length} email found`);
+
     const allLinks = await findAllLinks(page);
 
     const contactAboutLinks = allLinks.filter((link) => {
@@ -103,10 +91,12 @@ async function getContactAboutLinks(site, jobId) {
       );
       return isKeywordLink && link.startsWith(new URL(site).origin);
     });
+    console.log(
+      `${site} - ${contactAboutLinks.length} contact/about link found`
+    );
 
     const contactAboutEmails = [];
     for (const link of contactAboutLinks) {
-      if (!activeJobs.get(jobId)?.active) return null;
       try {
         await page.goto(link, {
           waitUntil: "networkidle0",
@@ -115,6 +105,7 @@ async function getContactAboutLinks(site, jobId) {
         await new Promise((resolve) => setTimeout(resolve, PUPPETEER_DELAY));
         const emails = await findEmails(page);
         contactAboutEmails.push(...emails);
+        console.log(`${link} - ${emails.length} email found`);
       } catch (err) {
         console.log(`${link} failed to load: ${err.message}`);
       }
@@ -137,6 +128,7 @@ async function getContactAboutLinks(site, jobId) {
       },
     };
   } catch (err) {
+    console.error(`${site} error: ${err.message}`);
     return {
       site,
       error: err.message,
@@ -151,49 +143,34 @@ async function getContactAboutLinks(site, jobId) {
   }
 }
 
-
 app.post("/check", async (req, res) => {
-  const { domains, jobId } = req.body;
-  if (!domains || !Array.isArray(domains) || !jobId) {
-    return res.status(400).json({ error: "domains and jobId required" });
-  }
-
-  activeJobs.set(jobId, { active: true, browser: null });
+  const domains = req.body.domains || [];
+  console.log(`${domains.length} domain will be checked`);
 
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Transfer-Encoding", "chunked");
 
   for (let i = 0; i < domains.length; i++) {
-    if (!activeJobs.get(jobId)?.active) break;
     const domain = domains[i].trim();
-    const result = await getContactAboutLinks(domain, jobId);
-    if (!result) break;
-    res.write(JSON.stringify(result) + "\n");
+    console.log(`${i + 1}/${domains.length}: ${domain} started`);
+
+    const result = await getContactAboutLinks(domain);
+    console.log(`${domain} completed`);
+
+    res.write(JSON.stringify(result) + "\n"); 
+
     if (i < domains.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 
-  activeJobs.delete(jobId);
-  res.end();
-});
-
-
-app.post("/cancel", async (req, res) => {
-  const { jobId } = req.body;
-  if (activeJobs.has(jobId)) {
-    const job = activeJobs.get(jobId);
-    job.active = false;
-    if (job.browser) {
-      try {
-        await job.browser.close();
-      } catch (e) {}
-    }
-    return res.json({ message: "Job cancelled" });
-  }
-  res.status(404).json({ error: "Job not found" });
+  console.log(`All domains completed`);
+  res.end(); 
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
+  console.log("Web Scraper is ready!");
+  console.log("Endpoint:");
+  console.log("  POST /check - Domain checking");
 });
